@@ -17,20 +17,30 @@
       </div>
 
       <div class = 'property_field'>
-     <!   <% options = [["Pressure", 'pressure'], ["Temperature", 'temp'], ["Vapor Quality (%)", 'quality']] %> >
-        <%= label_tag(:pressure, "Pressure") %>
+        <%= label_tag(:pressure, "Pressure (kPa)") %>
         <%= text_field_tag(:pressure, params[:pressure])  %>
       </div>
 
       <div class = 'property_field'>
-        <%= label_tag(:temperature, "Temperature")%>
+        <%= label_tag(:temperature, "Temperature (°C)")%>
         <%= text_field_tag(:temperature) %>
       </div>
 
-      <! TODO: jQuery to show this field when necessary >
+      <div class = 'property_field'>
+        <%= label_tag(:specific_volume, "Specific Volume (m&sup3/kg)".html_safe)%>
+        <%= text_field_tag(:specific_volume) %>
+      </div>
+
+      <div class = 'property_field'>
+        <%= label_tag(:specific_energy, "Specific Energy (kJ/kg)") %>
+        <%= text_field_tag(:specific_energy) %>
+      </div>
+
+      <! TODO: jQuery to show this field only when necessary >
       <div class = 'property_field'>
         <%= label_tag(:quality, "Vapor Quality (%)") %>
         <%= text_field_tag(:quality) %>
+
       </div>
     </div>
     <%= submit_tag("Go") %>
