@@ -1,0 +1,21 @@
+// Place all the styles related to the SteamTable controller here.
+// They will automatically be included in application.css.
+// You can use Sass (SCSS) here: http://sass-lang.com/
+input, label {
+  display:block;
+}
+
+.property_field {
+  display: inline-block;
+  margin-right: -0.5em;
+}
+
+div#saturated {
+  display: inline-block;
+  float: left;
+  margin-right: 1%;
+}
+
+input#saturated {
+  margin-top: 1%
+}

@@ -1,0 +1,41 @@
+<h1>Temporary Home</h1>
+<p>Why hello there.</p>
+<p> The State Postulate says: "The state of a simple compressible closed system (which is at equilibrium)
+  is completely specified by any two independent intensive state properties."
+</p>
+
+
+<p>Here's your test form</p>
+<%= form_tag("lookup", method: "post") do %>
+    <%= label_tag(:Properties, "Enter Known Properties:") %>
+    <br>
+
+    <div>
+      <div id= 'saturated'>
+        <%= label_tag(:saturated, "Saturated") %>
+        <%= check_box_tag(:saturated) %>
+      </div>
+
+      <div class = 'property_field'>
+     <!   <% options = [["Pressure", 'pressure'], ["Temperature", 'temp'], ["Vapor Quality (%)", 'quality']] %> >
+        <%= label_tag(:pressure, "Pressure") %>
+        <%= text_field_tag(:pressure, params[:pressure])  %>
+      </div>
+
+      <div class = 'property_field'>
+        <%= label_tag(:temperature, "Temperature")%>
+        <%= text_field_tag(:temperature) %>
+      </div>
+
+      <! TODO: jQuery to show this field when necessary >
+      <div class = 'property_field'>
+        <%= label_tag(:quality, "Vapor Quality (%)") %>
+        <%= text_field_tag(:quality) %>
+      </div>
+    </div>
+    <%= submit_tag("Go") %>
+<% end %>
+
+<%= render :partial =>'steam_table/lookup' if @results != nil%>
+
+

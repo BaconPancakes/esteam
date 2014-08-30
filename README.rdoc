@@ -1,4 +1,3 @@
 == README
 
 An attempt at a thermo steam table app - something that I might have used while solving homework problems in thermo.
-<tt>rake doc:app</tt>.
