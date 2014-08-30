@@ -13,7 +13,7 @@
     <div>
       <div id= 'saturated'>
         <%= label_tag(:saturated, "Saturated") %>
-        <%= check_box_tag(:saturated) %>
+        <%= check_box_tag(:saturated, params[:saturated], 'checked') %>
       </div>
 
       <div class = 'property_field'>
@@ -36,6 +36,16 @@
         <%= text_field_tag(:specific_energy) %>
       </div>
 
+      <div class = 'property_field'>
+        <%= label_tag(:specific_enthalpy, "Specific Enthalpy (kJ/kg)") %>
+        <%= text_field_tag(:specific_enthalpy) %>
+      </div>
+
+      <div class = 'property_field'>
+        <%= label_tag(:specific_entropy, "Specific Entropy") %>
+        <%= text_field_tag(:specific_entropy) %>
+      </div>
+
       <! TODO: jQuery to show this field only when necessary >
       <div class = 'property_field'>
         <%= label_tag(:quality, "Vapor Quality (%)") %>
@@ -46,6 +56,6 @@
     <%= submit_tag("Go") %>
 <% end %>
 
-<%= render :partial =>'steam_table/lookup' if @results != nil%>
+<%= render :partial =>'steam_table/lookup' if @results.present?%>
 
 
