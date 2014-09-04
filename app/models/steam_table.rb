@@ -2,33 +2,124 @@ require 'csv'
 require 'bsearch'
 
 class SteamTable
+
   # define which thermodynamic property each column in the steam table represents
-  PROPERTY= {temperature: 0, pressure: 1, v_f: 2, v_g: 3, u_f: 4, u_g: 5, h_f: 6, h_g: 7, s_f: 8, s_g: 9}
+  SAT_PROPERTY= {temperature: 0, pressure: 1, v_f: 2, v_g: 3, u_f: 4, u_g: 5, h_f: 6, h_g: 7, s_f: 8, s_g: 9}
+  PROPERTY = {temperature: 0, pressure: 1, v: 2, u: 3, h: 4, s:5, state: 6 }
+
+  # array of all properties, for easy iteration
+  ALL_PROPERTIES = [:temperature, :pressure, :specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy]
 
   # initialize steam table
   def initialize
-    @table = CSV.read('app/models/water.csv', headers: true)
+    @sat_table = CSV.read('app/models/water_sat.csv', headers: true)
+    @table = CSV.read('app/models/water.csv', headers:true)
   end
 
 # lookup method
   def lookup(rawparams)
     params = getparams(rawparams)
 
-    # if the user has selected 'saturated'
+    # if the user has selected 'saturated', run satlookup
     if rawparams[:saturated]
       return satlookup(params)
 
+      # else we have the regular procedure
     else
 
+      # select two parameters from params
+      property1 = ''
+      property2 = ''
+      value1 = ''
+      value2 = ''
+      ALL_PROPERTIES.each do |property|
+        unless property1.present?
+          if params[property].present?
+            property1 = property.to_s
+            value1 = params[property].to_f
+          end
+        end
+
+        if property1.present?
+          if params[property].present?
+            property2 = property.to_s
+            value2 = params[property].to_f
+          end
+        end
+      end
+
+      bestindex = search(property1, value1, property2, value2)
+
+      # interpolate for the rest of the values
+      unless property1 == 'specific_volume' || property2 == 'specific_volume'
+        v = interpolate(bestindex, property1, value1, 'v')
+      end
+      unless property1 == 'specific_energy' || property2 == 'specific_energy'
+        u = interpolate(bestindex, property1, value1, 'u')
+      end
+      unless property1 == 'specific_enthalpy' || property2 == 'specific_enthalpy'
+        h = interpolate(bestindex, property1, value1, 'h')
+      end
+      unless property1 == 'specific_entropy' || property2 == 'specific_entropy'
+        s = interpolate(bestindex, property1, value1, 's')
+      end
+      unless property1 == 'pressure' || property2 == 'pressure'
+        pres = interpolate(bestindex, property1, value1, 'pressure')
+      end
+      unless property1 == 'temperature' || property2 == 'temperature'
+        temp = interpolate(bestindex, property, value1, 'temperature')
+      end
+
+      # assign the remaining property1, property2 (messy)
+
+      case property1
+        when 'pressure'
+          pres = value1
+        when 'temperature'
+          temp = value1
+        when 'specific_volume'
+          v = value1
+        when 'specific_entropy'
+          s = value1
+        when 'specific_energy'
+          u = value1
+        when 'specific_enthalpy'
+          h = value1
+        else
+          raise 'property1 not valid'
+      end
+
+      case property2
+        when 'pressure'
+          pres = value2
+        when 'temperature'
+          temp = value2
+        when 'specific_volume'
+          v = value2
+        when 'specific_entropy'
+          s = value2
+        when 'specific_energy'
+          u = value2
+        when 'specific_enthalpy'
+          h = value2
+        else
+          raise 'property2 not valid'
+      end
+
+      return {temperature: temp, pressure: pres,
+              specific_volume: v, specific_energy: u,
+              specific_enthalpy: h, specific_entropy: s}
     end
   end
 
-  # private helper methods
+
+# private helper methods
   private
 
-  # takes the raw parameters passed to the controller, extract the useful property data
-  # not really necessary, but I don't like passing around random authenticity tokens.
-  # returns a float hash of the useful properties. Leaves blanks if not present.
+
+# takes the raw parameters passed to the controller, extract the useful property data
+# not really necessary, but I don't like passing around random authenticity tokens.
+# returns a float hash of the useful properties. Leaves blanks if not present.
   def getparams(rawparams)
 
     temp = rawparams[:temperature]
@@ -68,26 +159,27 @@ class SteamTable
         return satlookup_from_temperature(temperature, quality)
       end
 
+      # at the very least, if we have temperature we can solve for pressure and vice versa
+    else
+      if params[:pressure].present?
+        pressure = params[:pressure].to_f
+        index = sat_search_column('pressure', pressure)
+        temperature = sat_interpolate(index, 'pressure', pressure, 'temperature')
+        return {pressure: pressure, temperature: temperature}
+      end
+
+      if params[:temperature].present?
+        temperature = params[:temperature].to_f
+        index = sat_search_column('temperature', temperature)
+        pressure = sat_interpolate(index, 'temperature', temperature, 'pressure')
+        return {pressure: pressure, temperature: temperature}
+      end
     end
     return ''
-
   end
 
-=begin
-         # (?) If we have quality and two "specific" properties, we can calculate pressure or temperature.
-      else
-        pressure = pressure_from_quality(quality, specific_property1, specific_property2)
-        return satlookup_from_pressure(pressure, quality)
-      end
-=end
 
-
-  # given the quality and a specific_property, we can look up the pressure
-  def pressure_from_quality(quality, specific_property1, specific_property2)
-    # arbitrarily decide to calculate y_f (we can alternatively do y_g)
-  end
-
-  # attempts to solve for quality. If unable, returns blank
+# attempts to solve for quality. If unable, returns blank
   def solve_quality(params)
     if params[:quality].present?
       raise 'quality is already given!'
@@ -100,7 +192,7 @@ class SteamTable
       # check each "specific property", return quality on first found
       [:specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy].each do |property|
         if params[property].present?
-          return quality_from_temp(temperature, property.to_s, params[property].to_f)
+          return quality_from_temp(temperature, property.to_s, params[property].to_f).round(3)
         end
       end
 
@@ -111,39 +203,27 @@ class SteamTable
       # check each "specific property", return quality on first found
       [:specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy].each do |property|
         if params[property].present?
-          return quality_from_pressure(pressure, property.to_s, params[property].to_f)
+          return quality_from_pressure(pressure, property.to_s, params[property].to_f).round(3)
         end
       end
     end
     return ''
   end
 
-=begin
-         # We should have two specific properties. Otherwise, quality calculation is not possible.
-        count = 0
-        [:specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy].each do |property|
-          count += 1 unless params[property].blank?
-        end
-        if count < 2
-          return false
-        end
-=end
-
-
 # for a saturated substance, given temperature and quality, look up pressure
 # returns hash of all properties
   def satlookup_from_pressure(pressure, quality)
-    index = search_column('pressure', pressure)
-    temperature = interpolate(index, 'pressure', pressure, 'temperature')
+    index = sat_search_column('pressure', pressure)
+    temperature = sat_interpolate(index, 'pressure', pressure, 'temperature')
 
-    v_f = interpolate(index, 'pressure', pressure, 'v_f')
-    v_g = interpolate(index, 'pressure', pressure, 'v_g')
-    u_f = interpolate(index, 'pressure', pressure, 'u_f')
-    u_g = interpolate(index, 'pressure', pressure, 'u_g')
-    h_f = interpolate(index, 'pressure', pressure, 'h_f')
-    h_g = interpolate(index, 'pressure', pressure, 'h_g')
-    s_f = interpolate(index, 'pressure', pressure, 's_f')
-    s_g = interpolate(index, 'pressure', pressure, 's_g')
+    v_f = sat_interpolate(index, 'pressure', pressure, 'v_f')
+    v_g = sat_interpolate(index, 'pressure', pressure, 'v_g')
+    u_f = sat_interpolate(index, 'pressure', pressure, 'u_f')
+    u_g = sat_interpolate(index, 'pressure', pressure, 'u_g')
+    h_f = sat_interpolate(index, 'pressure', pressure, 'h_f')
+    h_g = sat_interpolate(index, 'pressure', pressure, 'h_g')
+    s_f = sat_interpolate(index, 'pressure', pressure, 's_f')
+    s_g = sat_interpolate(index, 'pressure', pressure, 's_g')
 
     specific_volume = specifics_from_quality(quality, v_f, v_g)
     specific_energy = specifics_from_quality(quality, u_f, u_g)
@@ -155,20 +235,20 @@ class SteamTable
             specific_entropy: specific_entropy, quality: quality}
   end
 
-  # for a saturated substance, given pressure and quality, look up temperature
-  # returns hash of all properties
+# for a saturated substance, given pressure and quality, look up temperature
+# returns hash of all properties
   def satlookup_from_temperature(temperature, quality)
-    index = search_column('temperature', temperature)
-    pressure = interpolate(index, 'temperature', temperature, 'pressure')
+    index = sat_search_column('temperature', temperature)
+    pressure = sat_interpolate(index, 'temperature', temperature, 'pressure')
 
-    v_f = interpolate(index, 'temperature', temperature, 'v_f')
-    v_g = interpolate(index, 'temperature', temperature, 'v_g')
-    u_f = interpolate(index, 'temperature', temperature, 'u_f')
-    u_g = interpolate(index, 'temperature', temperature, 'u_g')
-    h_f = interpolate(index, 'pressure', temperature, 'h_f')
-    h_g = interpolate(index, 'pressure', temperature, 'h_g')
-    s_f = interpolate(index, 'pressure', temperature, 's_f')
-    s_g = interpolate(index, 'pressure', temperature, 's_g')
+    v_f = sat_interpolate(index, 'temperature', temperature, 'v_f')
+    v_g = sat_interpolate(index, 'temperature', temperature, 'v_g')
+    u_f = sat_interpolate(index, 'temperature', temperature, 'u_f')
+    u_g = sat_interpolate(index, 'temperature', temperature, 'u_g')
+    h_f = sat_interpolate(index, 'pressure', temperature, 'h_f')
+    h_g = sat_interpolate(index, 'pressure', temperature, 'h_g')
+    s_f = sat_interpolate(index, 'pressure', temperature, 's_f')
+    s_g = sat_interpolate(index, 'pressure', temperature, 's_g')
 
     specific_volume = specifics_from_quality(quality, v_f, v_g)
     specific_energy = specifics_from_quality(quality, u_f, u_g)
@@ -178,33 +258,78 @@ class SteamTable
     return {pressure: pressure, temperature: temperature, specific_volume: specific_volume,
             specific_energy: specific_energy, specific_enthalpy: specific_enthalpy,
             specific_entropy: specific_entropy, quality: quality}
+  end
+
+# tries to find the best index for the given two state properties
+# returns the integer index or blank string if not found
+# sorts the @table instance as a side effect
+# TODO: consider the upper bound of bound of search parameters based on the parameters
+  def search(property1, value1, property2, value2)
+    property1 = property1.intern
+    property2 = property2.intern
+
+    sort_by(property1,property2)
+    range1 = @table.bsearch_range{|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+
+    # if an actual match, search the next column.
+    range1.each do |index|
+      if @table[index][PROPERTY[property1]].to_f == value1.to_f
+        return @table.bsearch_lower_boundary (range1) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
+      end
+    end
+
+    sort_by(property2, property1)
+    range2 = @table.bsearch_range{|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
+    range2.each do |index|
+      if @table[index][PROPERTY[property2]].to_f == value2.to_f
+        return @table.bsearch_lower_boundary (range2) {|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+      end
+    end
+
+    # if no close match return the closest index
+    sort_by(property1, property2)
+    return @table.bsearch_lower_boundary{|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+  end
+
+
+# sorts by property1, then property2 (ascending)
+# returns the sorted table instance
+  def sort_by(property1, property2)
+    property1 = property1.intern
+    property2 = property2.intern
+    table = @table.sort do  |row, nextrow|
+      comp = row[PROPERTY[property1]].to_f <=> nextrow[PROPERTY[property1]].to_f
+      comp.zero? ? (row[PROPERTY[property2]].to_f <=> nextrow[PROPERTY[property2]].to_f) : comp
+    end
   end
 
 
 # given a string property name and its value, lookup and return the corresponding index of its column
-  def search_column(property, value)
+# searches for the lower_boundary, if not the match
+# works for sorted temperature/pressure lookups (saturated table)
+  def sat_search_column(property, value)
     # convert to symbol
     property = property.intern
-    column = @table.map {|row| row[PROPERTY[property]].to_f}
+    column = @sat_table.map {|row| row[SAT_PROPERTY[property]].to_f}
     index = column.bsearch_lower_boundary{|x| x <=> value.to_f}
     return index
   end
 
-# given a property, an index to its value, the closest value, and the desired property,
+# for saturated substances, given a property, an index to its value, the closest value, and the desired property,
 # interpolate to find the desired value
-  def interpolate(index, property, value, desired_property)
+  def sat_interpolate(index, property, value, desired_property)
     property = property.intern
     desired_property = desired_property.intern
     # TODO: Consider lower bound of index
     # if index == 0
-    # return @table[index][PROPERTY[:pressure]].to_f
+    # return @sat_table[index][SAT_PROPERTY[:pressure]].to_f
     #end
 
-    a1 = @table[index-1][PROPERTY[desired_property]].to_f
-    a2 = @table[index][PROPERTY[desired_property]].to_f
-    b1 = @table[index-1][PROPERTY[property]].to_f
-    b2 = @table[index][PROPERTY[property]].to_f
-    result = a1 + (((value - b1)/(b2-b1)) * (a2-a1))
+    a1 = @sat_table[index][SAT_PROPERTY[desired_property]].to_f
+    a2 = @sat_table[index-1][SAT_PROPERTY[desired_property]].to_f
+    b1 = @sat_table[index][SAT_PROPERTY[property]].to_f
+    b2 = @sat_table[index-1][SAT_PROPERTY[property]].to_f
+    result = a1 + ((((value - b1))/(b2-b1)) * (a2-a1))
     return result.round(3)
   end
 
@@ -215,7 +340,26 @@ class SteamTable
     return result.round(3)
   end
 
-# based on the input parameters, check if we can indeed solve for quality
+  # for unsaturated substances, given a property, an index to its value, the closest value, and the desired property,
+  # interpolate to find the desired value
+  def interpolate(index, property, value, desired_property)
+    property = property.intern
+    desired_property = desired_property.intern
+    # TODO: Consider lower bound of index
+    # if index == 0
+    # return @sat_table[index][SAT_PROPERTY[:pressure]].to_f
+    #end
+
+    a1 = @table[index][PROPERTY[desired_property]].to_f
+    a2 = @table[index-1][PROPERTY[desired_property]].to_f
+    b1 = @table[index][PROPERTY[property]].to_f
+    b2 = @table[index-1][PROPERTY[property]].to_f
+    result = a1 + ((((value - b1))/(b2-b1)) * (a2-a1))
+    return result.round(3)
+  end
+
+
+# based on the input parameters, check if we can indeed solve for this
   def solvable(params)
     # we need two independent properties
     count = 0
@@ -228,7 +372,7 @@ class SteamTable
     end
 
     # Assuming saturated, pressure and temperature are dependent. If both exist, we overcounted one
-    if params[:quality].present?
+    if params[:saturated].present?
       if params[:pressure].present? && params[:temperature].present?
         count -= 1;
       end
@@ -241,7 +385,7 @@ class SteamTable
 
 # given a temperature value, the string name of the "specific" property and its value, calculate quality
   def quality_from_temp(temperature_value, specific_property, value)
-    index = search_column('temperature', temperature_value)
+    index = sat_search_column('temperature', temperature_value)
     # (messy) set up parameters for interpolation method
     case specific_property
       when 'specific_volume'
@@ -259,8 +403,8 @@ class SteamTable
       else raise 'Given property name not valid.'
     end
 
-    y_f = interpolate(index, 'temperature', temperature_value, y_f)
-    y_g = interpolate(index, 'temperature', temperature_value, y_g)
+    y_f = sat_interpolate(index, 'temperature', temperature_value, y_f)
+    y_g = sat_interpolate(index, 'temperature', temperature_value, y_g)
 
     quality = 100 * (value - y_f)/(y_g-y_f)
     if quality > 100
@@ -270,8 +414,9 @@ class SteamTable
   end
 
 # given a pressure value, the string name of a "specific property" and its value, calculate quality
+# @return [float]
   def quality_from_pressure(pressure_value, specific_property, value)
-    index = search_column('pressure', pressure_value)
+    index = sat_search_column('pressure', pressure_value)
     # (messy) set up parameters for interpolation method
     case specific_property
       when 'specific_volume'
@@ -289,9 +434,10 @@ class SteamTable
       else raise 'Given property name not valid.'
     end
 
-    y_f = interpolate(index, 'pressure', pressure_value, y_f)
-    y_g = interpolate(index, 'pressure', pressure_value, y_g)
+    y_f = sat_interpolate(index, 'pressure', pressure_value, y_f)
+    y_g = sat_interpolate(index, 'pressure', pressure_value, y_g)
 
+    # convert to % units
     quality = 100 *(value - y_f)/(y_g-y_f)
     if quality > 100
       quality = 100

@@ -56,6 +56,10 @@
     <%= submit_tag("Go") %>
 <% end %>
 
-<%= render :partial =>'steam_table/lookup' if @results.present?%>
+<p>
+  All results:
+  <%=  @results %>
+</p>
+<%#render :partial =>'steam_table/lookup' if @results.present? %>
 
 
