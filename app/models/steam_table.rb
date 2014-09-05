@@ -5,7 +5,7 @@ class SteamTable
 
   # define which thermodynamic property each column in the steam table represents
   SAT_PROPERTY= {temperature: 0, pressure: 1, v_f: 2, v_g: 3, u_f: 4, u_g: 5, h_f: 6, h_g: 7, s_f: 8, s_g: 9}
-  PROPERTY = {temperature: 0, pressure: 1, v: 2, u: 3, h: 4, s:5, state: 6 }
+  PROPERTY = {temperature: 0, pressure: 1, v: 2, u: 3, h: 4, s: 5, state: 6 }
 
   # array of all properties, for easy iteration
   ALL_PROPERTIES = [:temperature, :pressure, :specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy]
@@ -32,86 +32,69 @@ class SteamTable
       property2 = ''
       value1 = ''
       value2 = ''
+
+      # ends up selecting the first and last parameters
       ALL_PROPERTIES.each do |property|
         unless property1.present?
           if params[property].present?
-            property1 = property.to_s
+            property1 = property
             value1 = params[property].to_f
           end
         end
 
         if property1.present?
           if params[property].present?
-            property2 = property.to_s
+            property2 = property
             value2 = params[property].to_f
           end
         end
       end
 
-      bestindex = search(property1, value1, property2, value2)
+      # take the two parameters and look in the table for a match for either
+      index = nil
+      sort_by(property1.to_s,property2.to_s)
+      range1 = @table.bsearch_range{|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+      # if an actual match, search the next column.
+      range1.each do |i|
+        if @table[i][PROPERTY[property1]].to_f == value1.to_f
+          index = @table.bsearch_lower_boundary (range1) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
+        end
+      end
+      #interpolate for the column without a match
+      result = interpolate_all(index.to_i, property2.to_s, property1.to_s, value2,  value1)
 
-      # interpolate for the rest of the values
-      unless property1 == 'specific_volume' || property2 == 'specific_volume'
-        v = interpolate(bestindex, property1, value1, 'v')
+      unless index.present?
+        sort_by(property2, property1)
+        range2 = @table.bsearch_range{|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
+        range2.each do |i|
+          if @table[i][PROPERTY[property2]].to_f == value2.to_f
+            index = @table.bsearch_lower_boundary (range2) {|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+          end
+        end
+        # interpolate for the column without a match
+        result = interpolate_all(index.to_i, property1.to_s, property2.to_s, value1, value2)
       end
-      unless property1 == 'specific_energy' || property2 == 'specific_energy'
-        u = interpolate(bestindex, property1, value1, 'u')
-      end
-      unless property1 == 'specific_enthalpy' || property2 == 'specific_enthalpy'
-        h = interpolate(bestindex, property1, value1, 'h')
-      end
-      unless property1 == 'specific_entropy' || property2 == 'specific_entropy'
-        s = interpolate(bestindex, property1, value1, 's')
-      end
-      unless property1 == 'pressure' || property2 == 'pressure'
-        pres = interpolate(bestindex, property1, value1, 'pressure')
-      end
-      unless property1 == 'temperature' || property2 == 'temperature'
-        temp = interpolate(bestindex, property, value1, 'temperature')
-      end
+      unless index.present?
+        # if neither matches, we must do double interpolation
+        # requires finding two indices corresponding to the four table rows necessary for double interpolation
+        # we search for a bracket of values for property1, and within that, a bracket of values for property2
+        sort_by(property1, property2)
+        # find the boundary value for property1
+        i = @table.bsearch_lower_boundary {|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
+        # find the range of values corresponding to the lower bracket i-1 and the upper bracket i
+        range1 = @table.bsearch_range {|row| row[PROPERTY[property1]].to_f <=> @table[i-1][PROPERTY[property1]].to_f}
+        range2 = @table.bsearch_range {|row| row[PROPERTY[property1]].to_f <=> @table[i][PROPERTY[property1]].to_f}
 
-      # assign the remaining property1, property2 (messy)
+        # within these range, find the indices for the brackets of property2
+        index1 = @table.bsearch_lower_boundary (range1) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
+        index2 = @table.bsearch_lower_boundary (range2) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
 
-      case property1
-        when 'pressure'
-          pres = value1
-        when 'temperature'
-          temp = value1
-        when 'specific_volume'
-          v = value1
-        when 'specific_entropy'
-          s = value1
-        when 'specific_energy'
-          u = value1
-        when 'specific_enthalpy'
-          h = value1
-        else
-          raise 'property1 not valid'
-      end
-
-      case property2
-        when 'pressure'
-          pres = value2
-        when 'temperature'
-          temp = value2
-        when 'specific_volume'
-          v = value2
-        when 'specific_entropy'
-          s = value2
-        when 'specific_energy'
-          u = value2
-        when 'specific_enthalpy'
-          h = value2
-        else
-          raise 'property2 not valid'
+        result = double_interpolate_all(index1, index2, property1.to_s, property2.to_s, value1, value2)
       end
 
-      return {temperature: temp, pressure: pres,
-              specific_volume: v, specific_energy: u,
-              specific_enthalpy: h, specific_entropy: s}
+      return result
     end
   end
-
 
 # private helper methods
   private
@@ -134,6 +117,134 @@ class SteamTable
             specific_volume: v, specific_energy: u,
             specific_enthalpy: h, specific_entropy: s}
 
+  end
+
+  # double interpolates all other values for given property names and values
+  def double_interpolate_all(index1, index2, property1, property2, value1, value2)
+
+    unless property1 == 'specific_volume' || property2 == 'specific_volume'
+      v = double_interpolate(index1, index2, property1, property2, value1, value2, 'v')
+    end
+    unless property1 == 'specific_energy' || property2 == 'specific_energy'
+      u = double_interpolate(index1, index2, property1, property2, value1, value2, 'u')
+    end
+    unless property1 == 'specific_enthalpy' || property2 == 'specific_enthalpy'
+      h = double_interpolate(index1, index2, property1, property2, value1, value2, 'h')
+    end
+    unless property1 == 'specific_entropy' || property2 == 'specific_entropy'
+      s = double_interpolate(index1, index2, property1, property2, value1, value2, 's')
+    end
+    unless property1 == 'pressure' || property2 == 'pressure'
+      pres = double_interpolate(index1, index2, property1, property2, value1, value2, 'pressure')
+    end
+    unless property1 == 'temperature' || property2 == 'temperature'
+      temp = double_interpolate(index1, index2, property1, property2, value1, value2, 'temperature')
+    end
+
+    # assign the remaining property1, property2 (messy)
+
+    case property1
+      when 'pressure'
+        pres = value1
+      when 'temperature'
+        temp = value1
+      when 'specific_volume'
+        v = value1
+      when 'specific_entropy'
+        s = value1
+      when 'specific_energy'
+        u = value1
+      when 'specific_enthalpy'
+        h = value1
+      else
+        raise 'property1 not valid'
+    end
+
+    case property2
+      when 'pressure'
+        pres = value2
+      when 'temperature'
+        temp = value2
+      when 'specific_volume'
+        v = value2
+      when 'specific_entropy'
+        s = value2
+      when 'specific_energy'
+        u = value2
+      when 'specific_enthalpy'
+        h = value2
+      else
+        raise 'property2 not valid'
+    end
+
+    return {temperature: temp, pressure: pres,
+            specific_volume: v, specific_energy: u,
+            specific_enthalpy: h, specific_entropy: s}
+  end
+
+
+  #takes two string property names and corresponding values. Looks up all values.
+  def interpolate_all(index, property1, property2, value1, value2)
+
+    # interpolate for the rest of the values
+    unless property1 == 'specific_volume' || property2 == 'specific_volume'
+      v = interpolate(index, property1, value1, 'v')
+    end
+    unless property1 == 'specific_energy' || property2 == 'specific_energy'
+      u = interpolate(index, property1, value1, 'u')
+    end
+    unless property1 == 'specific_enthalpy' || property2 == 'specific_enthalpy'
+      h = interpolate(index, property1, value1, 'h')
+    end
+    unless property1 == 'specific_entropy' || property2 == 'specific_entropy'
+      s = interpolate(index, property1, value1, 's')
+    end
+    unless property1 == 'pressure' || property2 == 'pressure'
+      pres = interpolate(index, property1, value1, 'pressure')
+    end
+    unless property1 == 'temperature' || property2 == 'temperature'
+      temp = interpolate(index, property1, value1, 'temperature')
+    end
+
+    # assign the remaining property1, property2 (messy)
+
+    case property1
+      when 'pressure'
+        pres = value1
+      when 'temperature'
+        temp = value1
+      when 'specific_volume'
+        v = value1
+      when 'specific_entropy'
+        s = value1
+      when 'specific_energy'
+        u = value1
+      when 'specific_enthalpy'
+        h = value1
+      else
+        raise 'property1 not valid'
+    end
+
+    case property2
+      when 'pressure'
+        pres = value2
+      when 'temperature'
+        temp = value2
+      when 'specific_volume'
+        v = value2
+      when 'specific_entropy'
+        s = value2
+      when 'specific_energy'
+        u = value2
+      when 'specific_enthalpy'
+        h = value2
+      else
+        raise 'property2 not valid'
+    end
+
+    return {temperature: temp, pressure: pres,
+            specific_volume: v, specific_energy: u,
+            specific_enthalpy: h, specific_entropy: s}
   end
 
   def satlookup(params)
@@ -260,47 +371,17 @@ class SteamTable
             specific_entropy: specific_entropy, quality: quality}
   end
 
-# tries to find the best index for the given two state properties
-# returns the integer index or blank string if not found
-# sorts the @table instance as a side effect
-# TODO: consider the upper bound of bound of search parameters based on the parameters
-  def search(property1, value1, property2, value2)
-    property1 = property1.intern
-    property2 = property2.intern
-
-    sort_by(property1,property2)
-    range1 = @table.bsearch_range{|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
-
-    # if an actual match, search the next column.
-    range1.each do |index|
-      if @table[index][PROPERTY[property1]].to_f == value1.to_f
-        return @table.bsearch_lower_boundary (range1) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
-      end
-    end
-
-    sort_by(property2, property1)
-    range2 = @table.bsearch_range{|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
-    range2.each do |index|
-      if @table[index][PROPERTY[property2]].to_f == value2.to_f
-        return @table.bsearch_lower_boundary (range2) {|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
-      end
-    end
-
-    # if no close match return the closest index
-    sort_by(property1, property2)
-    return @table.bsearch_lower_boundary{|row| row[PROPERTY[property1]].to_f <=> value1.to_f}
-  end
-
 
 # sorts by property1, then property2 (ascending)
 # returns the sorted table instance
   def sort_by(property1, property2)
     property1 = property1.intern
     property2 = property2.intern
-    table = @table.sort do  |row, nextrow|
+    @table = @table.sort do  |row, nextrow|
       comp = row[PROPERTY[property1]].to_f <=> nextrow[PROPERTY[property1]].to_f
       comp.zero? ? (row[PROPERTY[property2]].to_f <=> nextrow[PROPERTY[property2]].to_f) : comp
     end
+
   end
 
 
@@ -338,6 +419,36 @@ class SteamTable
   def specifics_from_quality(quality, y_f, y_g)
     result = (quality/100) * (y_g-y_f) + y_f
     return result.round(3)
+  end
+
+  # for unsaturated substances in the case where neither of the properties are in the table, use double interpolation
+  # requires two indexes that correspond to the two pairs of adjacent entries needed for double interpolation
+  def double_interpolate(index1, index2, property1, property2, value1, value2, desired_property)
+    property1 = property1.intern
+    property2 = property2.intern
+    desired_property = desired_property.intern
+
+    # fill in the gap for property1
+    a1 = @table[index1-1][PROPERTY[desired_property]].to_f
+    a2 = @table[index1][PROPERTY[desired_property]].to_f
+    b1 = @table[index1-1][PROPERTY[property2]].to_f
+    b2 = @table[index1][PROPERTY[property2]].to_f
+    y1 = a1 + ((((value2 - b1))/(b2-b1)) * (a2-a1))
+
+    # gap for property2
+    a1 = @table[index2-1][PROPERTY[desired_property]].to_f
+    a2 = @table[index2][PROPERTY[desired_property]].to_f
+    b1 = @table[index2-1][PROPERTY[property2]].to_f
+    b2 = @table[index2][PROPERTY[property2]].to_f
+    y2 = a1 + ((((value2 - b1))/(b2-b1)) * (a2-a1))
+
+    # now interpolate using found values
+    b1 = @table[index1][PROPERTY[property1]].to_f
+    b2 = @table[index2][PROPERTY[property1]].to_f
+    result = y1 + ((((value1 - b1))/(b2-b1)) * (y2-y1))
+
+    return result.round(3)
+
   end
 
   # for unsaturated substances, given a property, an index to its value, the closest value, and the desired property,
