@@ -1,28 +1,28 @@
-<div class="fixed">
+<div class="contain-to-grid">
   <nav class="top-bar" data-topbar role="navigation">
     <ul class="title-area">
       <li class="name">
         <h1><%=link_to('esteam', root_path)%></h1>
       </li>
-      <!-- Remove the class "menu-icon" to get rid of menu icon. Take out "Menu" to just have icon alone -->
       <li class="toggle-topbar menu-icon"><a href="#"><span></span></a></li>
     </ul>
     <section class="top-bar-section">
       <ul class="right">
         <li class="active"><%=link_to('Home', root_path)%></li>
-        <li><a href='#'> About</a></li>
-        <li><a href="#">Contact</a></li>
+        <li><a href='https://github.com/BaconPancakes/esteam' target="_blank"> About</a></li>
+        <li><a href="https://github.com/BaconPancakes/esteam" target="_blank">Contact</a></li>
       </ul>
     </section>
   </nav>
 </div>
 
-<div class = 'row'>
+<br>
 
-  <p>Why hello there.</p>
-  <p> The State Postulate says: "The state of a simple compressible closed system (which is at equilibrium)
+<div class = 'row'>
+  <h2> The State Postulate says: </h2>
+  <blockquote>"The state of a simple compressible closed system (which is at equilibrium)
     is completely specified by any two independent intensive state properties."
-  </p>
+  </blockquote>
 
   <% pressure, temperature, specific_entropy, specific_enthalpy, specific_volume, specific_energy = nil %>
   <% if @results.present?%>
@@ -38,73 +38,72 @@
   <% end %>
 
 
-
-  <p>Here's your test form</p>
   <%= form_tag('lookup', method: 'get', id: 'lookupform') do %>
       <fieldset>
-        <legend>HI LULU</legend>
-        <%= label_tag(:Properties, 'Enter Known Properties:') %>
-        <br>
+        <legend>Enter Known Properties</legend>
 
-        <div>
-          <div id= 'saturated'>
-            <%= label_tag(:saturated, 'Saturated') %>
-            <%= check_box_tag(:saturated, params[:saturated]) %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:pressure, 'Pressure') %>
-            <%= text_field_tag(:pressure, params[:pressure], placeholder: ' (kPa)', value: pressure)  %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:temperature, 'Temperature')%>
-            <%= text_field_tag(:temperature, params[:temperature], placeholder: ' (°C)', value: temperature) %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:specific_volume, 'Specific Volume'.html_safe)%>
-            <%= text_field_tag(:specific_volume, params[:specific_volume],
-                               placeholder: ' (m&sup3/kg)'.html_safe, value: specific_volume) %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:specific_energy, 'Specific Energy') %>
-            <%= text_field_tag(:specific_energy, params[:specific_energy],
-                               placeholder: ' (kJ/kg)', value: specific_energy) %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:specific_enthalpy, 'Specific Enthalpy') %>
-            <%= text_field_tag(:specific_enthalpy, params[:specific_enthalpy],
-                               placeholder: ' (kJ/kg)', value: specific_enthalpy) %>
-          </div>
-
-          <div class = 'property_field'>
-            <%= label_tag(:specific_entropy, 'Specific Entropy') %>
-            <%= text_field_tag(:specific_entropy, params[:specific_entropy],
-                               placeholder: ' (kJ/kg-K)', value: specific_entropy) %>
-          </div>
-
-          <! TODO: jQuery to show this field only when necessary >
-          <div class = 'property_field'>
-            <%= label_tag(:quality, 'Vapor Quality') %>
-            <%= text_field_tag(:quality, params[:quality], placeholder:  ' (%)', value: quality) %>
-
+        <div id ='sat'>
+          <label id="satlabel">Saturated?</label>
+          <div class="switch small" id ='satswitch'>
+            <%= check_box_tag(:saturated, params[:saturated])%>
+            <%= label_tag(:saturated, '') %>
           </div>
         </div>
-        <%= submit_tag("Go", class: 'button tiny')%>
-        <input type="button" class ='button tiny' name="clear" value="Again" onclick="clearForm(this.form);">
+
+        <div class = 'property_field'>
+          <%= label_tag(:pressure, 'Pressure') %>
+          <%= text_field_tag(:pressure, params[:pressure], placeholder: ' (kPa)', value: pressure)  %>
+        </div>
+
+        <div class = 'property_field'>
+          <%= label_tag(:temperature, 'Temperature')%>
+          <%= text_field_tag(:temperature, params[:temperature], placeholder: ' (°C)', value: temperature) %>
+        </div>
+
+        <div class = 'property_field'>
+          <%= label_tag(:specific_volume, 'Specific Volume'.html_safe)%>
+          <%= text_field_tag(:specific_volume, params[:specific_volume],
+                             placeholder: ' (m&sup3/kg)'.html_safe, value: specific_volume) %>
+        </div>
+
+        <div class = 'property_field'>
+          <%= label_tag(:specific_energy, 'Specific Energy') %>
+          <%= text_field_tag(:specific_energy, params[:specific_energy],
+                             placeholder: ' (kJ/kg)', value: specific_energy) %>
+        </div>
+
+        <div class = 'property_field'>
+          <%= label_tag(:specific_enthalpy, 'Specific Enthalpy') %>
+          <%= text_field_tag(:specific_enthalpy, params[:specific_enthalpy],
+                             placeholder: ' (kJ/kg)', value: specific_enthalpy) %>
+        </div>
+
+        <div class = 'property_field'>
+          <%= label_tag(:specific_entropy, 'Specific Entropy') %>
+          <%= text_field_tag(:specific_entropy, params[:specific_entropy],
+                             placeholder: ' (kJ/kg-K)', value: specific_entropy) %>
+        </div>
+
+        <! TODO: jQuery to show this field only when necessary >
+        <div class = 'property_field'>
+          <%= label_tag(:quality, 'Vapor Quality') %>
+          <%= text_field_tag(:quality, params[:quality], placeholder:  ' (%)', value: quality) %>
+
+        </div>
+        <div id="buttons">
+          <%= submit_tag("Go", class: 'button tiny', id: 'go')%>
+          <input type="button" id = 'clear' class ='button tiny' value="Clear" onclick="clearForm(this.form);">
+        </div>
       </fieldset>
   <% end %>
 
 
 
-  <p>
-    All results:
-    <%=  @results %>
-  </p>
-
+  <div id = "footer">
+    <ul>
+      <li><h5><small>This is a work in progress! Bear with us!</small></h5></li>
+    </ul>
+    </footer>
+  </div>
 </div>
-
 
