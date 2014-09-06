@@ -1,65 +1,110 @@
-<h1>Temporary Home</h1>
-<p>Why hello there.</p>
-<p> The State Postulate says: "The state of a simple compressible closed system (which is at equilibrium)
-  is completely specified by any two independent intensive state properties."
-</p>
+<div class="fixed">
+  <nav class="top-bar" data-topbar role="navigation">
+    <ul class="title-area">
+      <li class="name">
+        <h1><%=link_to('esteam', root_path)%></h1>
+      </li>
+      <!-- Remove the class "menu-icon" to get rid of menu icon. Take out "Menu" to just have icon alone -->
+      <li class="toggle-topbar menu-icon"><a href="#"><span></span></a></li>
+    </ul>
+    <section class="top-bar-section">
+      <ul class="right">
+        <li class="active"><%=link_to('Home', root_path)%></li>
+        <li><a href='#'> About</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </section>
+  </nav>
+</div>
+
+<div class = 'row'>
+
+  <p>Why hello there.</p>
+  <p> The State Postulate says: "The state of a simple compressible closed system (which is at equilibrium)
+    is completely specified by any two independent intensive state properties."
+  </p>
+
+  <% pressure, temperature, specific_entropy, specific_enthalpy, specific_volume, specific_energy = nil %>
+  <% if @results.present?%>
+      <%# if @results[:success]%>
+      <% pressure = @results[:pressure].to_s if @results[:pressure].present? %>
+      <% temperature = @results[:temperature].to_s if @results[:temperature].present? %>
+      <% specific_energy = @results[:specific_energy].to_s if @results[:specific_energy].present? %>
+      <% specific_entropy = @results[:specific_entropy].to_s if @results[:specific_entropy].present? %>
+      <% specific_enthalpy = @results[:specific_enthalpy].to_s if @results[:specific_enthalpy].present? %>
+      <% specific_volume = @results[:specific_volume].to_s if @results[:specific_volume].present? %>
+      <% quality = @results[:quality].to_s if @results[:quality].present? %>
+      <%# end %>
+  <% end %>
 
 
-<p>Here's your test form</p>
-<%= form_tag("lookup", method: "post") do %>
-    <%= label_tag(:Properties, "Enter Known Properties:") %>
-    <br>
 
-    <div>
-      <div id= 'saturated'>
-        <%= label_tag(:saturated, "Saturated") %>
-        <%= check_box_tag(:saturated, params[:saturated], 'checked') %>
-      </div>
+  <p>Here's your test form</p>
+  <%= form_tag('lookup', method: 'get', id: 'lookupform') do %>
+      <fieldset>
+        <legend>HI LULU</legend>
+        <%= label_tag(:Properties, 'Enter Known Properties:') %>
+        <br>
 
-      <div class = 'property_field'>
-        <%= label_tag(:pressure, "Pressure (kPa)") %>
-        <%= text_field_tag(:pressure, params[:pressure])  %>
-      </div>
+        <div>
+          <div id= 'saturated'>
+            <%= label_tag(:saturated, 'Saturated') %>
+            <%= check_box_tag(:saturated, params[:saturated]) %>
+          </div>
 
-      <div class = 'property_field'>
-        <%= label_tag(:temperature, "Temperature (°C)")%>
-        <%= text_field_tag(:temperature) %>
-      </div>
+          <div class = 'property_field'>
+            <%= label_tag(:pressure, 'Pressure') %>
+            <%= text_field_tag(:pressure, params[:pressure], placeholder: ' (kPa)', value: pressure)  %>
+          </div>
 
-      <div class = 'property_field'>
-        <%= label_tag(:specific_volume, "Specific Volume (m&sup3/kg)".html_safe)%>
-        <%= text_field_tag(:specific_volume) %>
-      </div>
+          <div class = 'property_field'>
+            <%= label_tag(:temperature, 'Temperature')%>
+            <%= text_field_tag(:temperature, params[:temperature], placeholder: ' (°C)', value: temperature) %>
+          </div>
 
-      <div class = 'property_field'>
-        <%= label_tag(:specific_energy, "Specific Energy (kJ/kg)") %>
-        <%= text_field_tag(:specific_energy) %>
-      </div>
+          <div class = 'property_field'>
+            <%= label_tag(:specific_volume, 'Specific Volume'.html_safe)%>
+            <%= text_field_tag(:specific_volume, params[:specific_volume],
+                               placeholder: ' (m&sup3/kg)'.html_safe, value: specific_volume) %>
+          </div>
 
-      <div class = 'property_field'>
-        <%= label_tag(:specific_enthalpy, "Specific Enthalpy (kJ/kg)") %>
-        <%= text_field_tag(:specific_enthalpy) %>
-      </div>
+          <div class = 'property_field'>
+            <%= label_tag(:specific_energy, 'Specific Energy') %>
+            <%= text_field_tag(:specific_energy, params[:specific_energy],
+                               placeholder: ' (kJ/kg)', value: specific_energy) %>
+          </div>
 
-      <div class = 'property_field'>
-        <%= label_tag(:specific_entropy, "Specific Entropy") %>
-        <%= text_field_tag(:specific_entropy) %>
-      </div>
+          <div class = 'property_field'>
+            <%= label_tag(:specific_enthalpy, 'Specific Enthalpy') %>
+            <%= text_field_tag(:specific_enthalpy, params[:specific_enthalpy],
+                               placeholder: ' (kJ/kg)', value: specific_enthalpy) %>
+          </div>
 
-      <! TODO: jQuery to show this field only when necessary >
-      <div class = 'property_field'>
-        <%= label_tag(:quality, "Vapor Quality (%)") %>
-        <%= text_field_tag(:quality) %>
+          <div class = 'property_field'>
+            <%= label_tag(:specific_entropy, 'Specific Entropy') %>
+            <%= text_field_tag(:specific_entropy, params[:specific_entropy],
+                               placeholder: ' (kJ/kg-K)', value: specific_entropy) %>
+          </div>
 
-      </div>
-    </div>
-    <%= submit_tag("Go") %>
-<% end %>
+          <! TODO: jQuery to show this field only when necessary >
+          <div class = 'property_field'>
+            <%= label_tag(:quality, 'Vapor Quality') %>
+            <%= text_field_tag(:quality, params[:quality], placeholder:  ' (%)', value: quality) %>
 
-<p>
-  All results:
-  <%=  @results %>
-</p>
-<%#render :partial =>'steam_table/lookup' if @results.present? %>
+          </div>
+        </div>
+        <%= submit_tag("Go", class: 'button tiny')%>
+        <input type="button" class ='button tiny' name="clear" value="Again" onclick="clearForm(this.form);">
+      </fieldset>
+  <% end %>
+
+
+
+  <p>
+    All results:
+    <%=  @results %>
+  </p>
+
+</div>
 
 

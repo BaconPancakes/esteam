@@ -13,12 +13,13 @@ class SteamTable
   # initialize steam table
   def initialize
     @sat_table = CSV.read('app/models/water_sat.csv', headers: true)
-    @table = CSV.read('app/models/water.csv', headers:true)
+    @table = CSV.read('app/models/water.csv', headers: true)
   end
 
 # lookup method
   def lookup(rawparams)
     params = getparams(rawparams)
+    return unless solvable(params)
 
     # if the user has selected 'saturated', run satlookup
     if rawparams[:saturated]
@@ -38,14 +39,14 @@ class SteamTable
         unless property1.present?
           if params[property].present?
             property1 = property
-            value1 = params[property].to_f
+            value1 = params[property]
           end
         end
 
         if property1.present?
           if params[property].present?
             property2 = property
-            value2 = params[property].to_f
+            value2 = params[property]
           end
         end
       end
@@ -105,13 +106,13 @@ class SteamTable
 # returns a float hash of the useful properties. Leaves blanks if not present.
   def getparams(rawparams)
 
-    temp = rawparams[:temperature]
-    pres = rawparams[:pressure]
-    quality = rawparams[:quality]
-    v = rawparams[:specific_volume]
-    u = rawparams[:specific_energy]
-    h = rawparams[:specific_enthalpy]
-    s = rawparams[:specific_entropy]
+    temp = rawparams[:temperature].to_f if rawparams[:temperature].present?
+    pres = rawparams[:pressure].to_f if rawparams[:pressure].present?
+    quality = rawparams[:quality].to_f if rawparams[:quality].present?
+    v = rawparams[:specific_volume].to_f if rawparams[:specific_volume].present?
+    u = rawparams[:specific_energy].to_f if rawparams[:specific_energy].present?
+    h = rawparams[:specific_enthalpy].to_f if rawparams[:specific_enthalpy].present?
+    s = rawparams[:specific_entropy].to_f if rawparams[:specific_entropy].present?
 
     return {temperature: temp, pressure: pres, quality: quality,
             specific_volume: v, specific_energy: u,
@@ -251,7 +252,7 @@ class SteamTable
     # if quality is given, check for pressure or temperature to lookup the rest.
     # return blank if nothing was done.
     if params[:quality].present?
-      quality = params[:quality].to_f
+      quality = params[:quality]
 
       # if quality is not given, we need to solve for it
     else
@@ -261,26 +262,26 @@ class SteamTable
     if quality.present?
       # If pressure is filled in
       if params[:pressure].present?
-        pressure = params[:pressure].to_f
+        pressure = params[:pressure]
         return satlookup_from_pressure(pressure, quality)
 
         # else if temperature is filled in
       elsif params[:temperature].present?
-        temperature = params[:temperature].to_f
+        temperature = params[:temperature]
         return satlookup_from_temperature(temperature, quality)
       end
 
       # at the very least, if we have temperature we can solve for pressure and vice versa
     else
       if params[:pressure].present?
-        pressure = params[:pressure].to_f
+        pressure = params[:pressure]
         index = sat_search_column('pressure', pressure)
         temperature = sat_interpolate(index, 'pressure', pressure, 'temperature')
         return {pressure: pressure, temperature: temperature}
       end
 
       if params[:temperature].present?
-        temperature = params[:temperature].to_f
+        temperature = params[:temperature]
         index = sat_search_column('temperature', temperature)
         pressure = sat_interpolate(index, 'temperature', temperature, 'pressure')
         return {pressure: pressure, temperature: temperature}
@@ -298,23 +299,23 @@ class SteamTable
 
     # if temperature or pressure is given, then we only need a "specific" property
     if params[:temperature].present?
-      temperature = params[:temperature].to_f
+      temperature = params[:temperature]
 
       # check each "specific property", return quality on first found
       [:specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy].each do |property|
         if params[property].present?
-          return quality_from_temp(temperature, property.to_s, params[property].to_f).round(3)
+          return quality_from_temp(temperature, property.to_s, params[property]).round(3)
         end
       end
 
       # if temperature not present, check if pressure value is given
     elsif params[:pressure].present?
-      pressure = params[:pressure].to_f
+      pressure = params[:pressure]
 
       # check each "specific property", return quality on first found
       [:specific_volume, :specific_energy, :specific_enthalpy, :specific_entropy].each do |property|
         if params[property].present?
-          return quality_from_pressure(pressure, property.to_s, params[property].to_f).round(3)
+          return quality_from_pressure(pressure, property.to_s, params[property]).round(3)
         end
       end
     end
@@ -476,10 +477,8 @@ class SteamTable
     count = 0
 
     # count each quantity
-    params.each do |value|
-      if value.present?
-        count += 1
-      end
+    params.each do |key, value|
+      count += 1 if value.present?
     end
 
     # Assuming saturated, pressure and temperature are dependent. If both exist, we overcounted one
