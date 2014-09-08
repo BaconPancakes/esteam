@@ -1,5 +1,5 @@
 $(document).ready(function(){
-    fixFooter();
+
     var legend = $('legend');
     if (legend.attr('id') === 'Results'&& legend.text != 'Results') {
         legend.hide('fade', 300, function() {
@@ -22,7 +22,7 @@ $(document).ready(function(){
             $('#quality_field').hide("fade", 300);
         }
     })
-
+    fixFooter();
 });
 
 function fixFooter() {
