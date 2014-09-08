@@ -2,6 +2,8 @@ source 'https://rubygems.org'
 
 gem 'bsearch', '~> 1.5.0'
 gem 'foundation-rails'
+gem 'jquery-ui-rails'
+gem 'jquery-validation-rails'
 
 group :production do
   gem 'pg'

@@ -19,8 +19,7 @@ class SteamTable
 # lookup method
   def lookup(rawparams)
     params = getparams(rawparams)
-    return unless solvable(params)
-
+    return {status: 'not solvable'} unless solvable(params)
     # if the user has selected 'saturated', run satlookup
     if rawparams[:saturated]
       return satlookup(params)
@@ -90,16 +89,28 @@ class SteamTable
         index1 = @table.bsearch_lower_boundary (range1) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
         index2 = @table.bsearch_lower_boundary (range2) {|row| row[PROPERTY[property2]].to_f <=> value2.to_f}
 
+        if index1 == nil || index2 == nil
+          return {status: 'not found'}
+        end
         result = double_interpolate_all(index1, index2, property1.to_s, property2.to_s, value1, value2)
       end
 
-      return result
+      return check_result(result)
     end
   end
 
 # private helper methods
   private
 
+  # checks the results for blanks, infinity, or NaN. Returns false if anything went wrong, which will be
+  # caught in the controller. If all good, it will pass the results along
+  def check_result(result)
+    return {status: 'no result'} unless result.present?
+    result.each do |key,value|
+      return {status: 'invalid float'} unless value.is_a?(String) || value.finite?
+    end
+    return result
+  end
 
 # takes the raw parameters passed to the controller, extract the useful property data
 # not really necessary, but I don't like passing around random authenticity tokens.
@@ -116,7 +127,7 @@ class SteamTable
 
     return {temperature: temp, pressure: pres, quality: quality,
             specific_volume: v, specific_energy: u,
-            specific_enthalpy: h, specific_entropy: s}
+            specific_enthalpy: h, specific_entropy: s, status: 'success'}
 
   end
 
@@ -180,7 +191,7 @@ class SteamTable
 
     return {temperature: temp, pressure: pres,
             specific_volume: v, specific_energy: u,
-            specific_enthalpy: h, specific_entropy: s}
+            specific_enthalpy: h, specific_entropy: s, status: 'success'}
   end
 
 
@@ -245,7 +256,7 @@ class SteamTable
 
     return {temperature: temp, pressure: pres,
             specific_volume: v, specific_energy: u,
-            specific_enthalpy: h, specific_entropy: s}
+            specific_enthalpy: h, specific_entropy: s, status: 'success'}
   end
 
   def satlookup(params)
@@ -263,12 +274,14 @@ class SteamTable
       # If pressure is filled in
       if params[:pressure].present?
         pressure = params[:pressure]
-        return satlookup_from_pressure(pressure, quality)
+        result = satlookup_from_pressure(pressure, quality)
+        return check_result(result)
 
         # else if temperature is filled in
       elsif params[:temperature].present?
         temperature = params[:temperature]
-        return satlookup_from_temperature(temperature, quality)
+        result = satlookup_from_temperature(temperature, quality)
+        return check_result(result)
       end
 
       # at the very least, if we have temperature we can solve for pressure and vice versa
@@ -277,17 +290,19 @@ class SteamTable
         pressure = params[:pressure]
         index = sat_search_column('pressure', pressure)
         temperature = sat_interpolate(index, 'pressure', pressure, 'temperature')
-        return {pressure: pressure, temperature: temperature}
+        result = {pressure: pressure, temperature: temperature, state: 'saturated', status: 'success'}
+        return check_result(result)
       end
 
       if params[:temperature].present?
         temperature = params[:temperature]
         index = sat_search_column('temperature', temperature)
         pressure = sat_interpolate(index, 'temperature', temperature, 'pressure')
-        return {pressure: pressure, temperature: temperature}
+        result = {pressure: pressure, temperature: temperature, state: 'saturated', status: 'success'}
+        return check_result(result)
       end
     end
-    return ''
+    return {status: 'not solvable'}
   end
 
 
@@ -344,7 +359,7 @@ class SteamTable
 
     return {pressure: pressure, temperature: temperature, specific_volume: specific_volume,
             specific_energy: specific_energy, specific_enthalpy: specific_enthalpy,
-            specific_entropy: specific_entropy, quality: quality}
+            specific_entropy: specific_entropy, quality: quality, state: 'saturated', status: 'success'}
   end
 
 # for a saturated substance, given pressure and quality, look up temperature
@@ -369,7 +384,7 @@ class SteamTable
 
     return {pressure: pressure, temperature: temperature, specific_volume: specific_volume,
             specific_energy: specific_energy, specific_enthalpy: specific_enthalpy,
-            specific_entropy: specific_entropy, quality: quality}
+            specific_entropy: specific_entropy, quality: quality, state: 'saturated', status: 'success'}
   end
 
 

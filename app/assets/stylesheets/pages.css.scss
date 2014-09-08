@@ -6,6 +6,7 @@ input[type='text'] {
   display:block;
   width: 8em;
 }
+
 .property_field label {
   text-align: center;
 }
@@ -15,9 +16,16 @@ input[type='text'] {
   margin-right: 0em;
 }
 
+#quality_field {
+  display: inline-block;
+  width: 7em;
+}
+
 div#sat {
   display: inline-block;
   float: left;
+  margin-left: 1.5em;
+  margin-right: 1em;
 }
 
 #satswitch {
@@ -25,30 +33,16 @@ div#sat {
 }
 
 div#buttons{
-  display:block
+  display: block;
+  margin-left: 2em;
 }
 
 #satlabel {
   display: block;
 }
 
-#footer {
-  width: 984px;
-  position: absolute;
-  bottom: 0px;
-  height: 71px;
-  border-top: 1px solid #C8C8C8;
-
-}
-
-#footer ul {
-  margin: 15px 0 10px 0;
+footer h5 {
   text-align: right
-}
-
-#footer li {
-  display: inline;
-  list-style-type: none;
 }
 
 

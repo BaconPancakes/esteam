@@ -1,4 +1,31 @@
-$(window).bind("load", function () {
+$(document).ready(function(){
+    fixFooter();
+    var legend = $('legend');
+    if (legend.attr('id') === 'Results'&& legend.text != 'Results') {
+        legend.hide('fade', 300, function() {
+            legend.text('Results')
+        });
+        legend.show('fade', 300);
+    }
+    var checkbox = $("input[name='saturated']");
+    if (checkbox.attr('checked') === 'checked') {
+        $('#quality_field').show();
+    }
+    else {
+        $('#quality_field').hide();
+    }
+    checkbox.click(function() {
+        if (this.checked) {
+            $('#quality_field').show( "fade", 500);
+        }
+        else {
+            $('#quality_field').hide("fade", 300);
+        }
+    })
+
+});
+
+function fixFooter() {
     var footer = $("#footer");
     var pos = footer.position();
     var height = $(window).height();
@@ -9,13 +36,16 @@ $(window).bind("load", function () {
             'margin-top': height + 'px'
         });
     }
-});
-
+}
 
 function clearForm(oForm) {
-
     var elements = oForm.elements;
-
+    var legendResult = $('legend#Results')
+    legendResult.fadeOut(300, function() {
+        legendResult.text("Enter Known Properties");
+    });
+    legendResult.fadeIn(300);
+    $('#quality_field').hide("fade", 300);
     oForm.reset();
 
     for(i=0; i<elements.length; i++) {
@@ -49,3 +79,4 @@ function clearForm(oForm) {
         }
     }
 }
+
